@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/mcml.schema.json",
   "title": "Model Context Markup Language (MCML)",
-  "description": "A schema for configuring AI agents, including tools, workflows, conversations, and events. Supports MCP and A2A protocols.",
-  "version": "1.1",
+  "description": "A schema for configuring AI agents, including tools, workflows, conversations, and events. Supports MCP, A2A, and advanced workflow features.",
+  "version": "1.2",
   "type": "object",
   "properties": {
     "mcml": {
@@ -126,6 +126,13 @@
           "$ref": "#/definitions/ToolsType",
           "description": "Tools available to the model, including MCP-based tools."
         },
+        "schemas": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object"
+          },
+          "description": "Named schema definitions for tool inputs/outputs (e.g., JSON Schema)."
+        },
         "imports": {
           "type": "array",
           "items": {
@@ -171,22 +178,46 @@
             "details": {
               "type": "object",
               "description": "Protocol-specific connection details.",
+              "properties": {
+                "auth": {
+                  "type": "object",
+                  "description": "Authentication details.",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["apiKey", "oauth", "none"],
+                      "description": "Type of authentication."
+                    },
+                    "credentials": {
+                      "type": "object",
+                      "description": "Authentication credentials.",
+                      "additionalProperties": true
+                    }
+                  }
+                }
+              },
               "additionalProperties": true
             }
           },
           "required": ["protocol"]
         },
         "inputSchema": {
-          "type": "object",
+          "oneOf": [
+            {"type": "object"},
+            {"type": "string", "description": "Reference to a named schema in head.schemas"}
+          ],
           "description": "Input parameters for the tool."
         },
         "outputSchema": {
-          "type": "object",
+          "oneOf": [
+            {"type": "object"},
+            {"type": "string", "description": "Reference to a named schema in head.schemas"}
+          ],
           "description": "Expected output format of the tool."
         },
         "requiresConsent": {
           "type": "boolean",
-          "description": "Whether user consent is required to use this tool (common for MCP tools).",
+          "description": "Whether user consent is required to use this tool.",
           "default": false
         },
         "description": {
@@ -195,9 +226,63 @@
         }
       }
     },
-    "FlowType.If.Then.UseTool": {
+    "FlowType.Step": {
       "type": "object",
-      "description": "Specifies the use of a tool within a flow.",
+      "description": "A step in a flow, which can be a control structure or an action.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["if", "loop", "parallel", "sequence", "action"],
+          "description": "Type of the step."
+        },
+        "condition": {
+          "type": "string",
+          "description": "Condition for 'if' or 'loop' steps."
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FlowType.Step"
+          },
+          "description": "Nested steps for 'sequence', 'parallel', or 'loop'."
+        },
+        "action": {
+          "$ref": "#/definitions/FlowType.Action",
+          "description": "Action to perform for 'action' steps."
+        },
+        "onError": {
+          "$ref": "#/definitions/FlowType.ErrorHandler",
+          "description": "Error handling for this step."
+        }
+      },
+      "required": ["type"]
+    },
+    "FlowType.Action": {
+      "type": "object",
+      "description": "An action within a flow step.",
+      "properties": {
+        "useTool": {
+          "$ref": "#/definitions/FlowType.Action.UseTool",
+          "description": "Use a specific tool."
+        },
+        "agent": {
+          "$ref": "#/definitions/AgentResponse",
+          "description": "Response to the user."
+        },
+        "communicate": {
+          "$ref": "#/definitions/FlowType.Action.Communicate",
+          "description": "Communicate with another agent."
+        }
+      },
+      "oneOf": [
+        {"required": ["useTool"]},
+        {"required": ["agent"]},
+        {"required": ["communicate"]}
+      ]
+    },
+    "FlowType.Action.UseTool": {
+      "type": "object",
+      "description": "Use a tool within a flow.",
       "required": ["name", "parameters"],
       "properties": {
         "name": {
@@ -206,7 +291,7 @@
         },
         "parameters": {
           "type": "object",
-          "description": "Input parameters for the tool."
+          "description": "Input parameters for the tool, supporting dynamic expressions."
         },
         "resultVariable": {
           "type": "string",
@@ -214,9 +299,9 @@
         }
       }
     },
-    "FlowType.If.Then.Communicate": {
+    "FlowType.Action.Communicate": {
       "type": "object",
-      "description": "Send a message to another agent via a communication protocol like A2A.",
+      "description": "Send a message to another agent.",
       "properties": {
         "protocol": {
           "type": "string",
@@ -235,46 +320,21 @@
       },
       "required": ["target", "message"]
     },
-    "FlowType.If.Then": {
+    "FlowType.ErrorHandler": {
       "type": "object",
-      "description": "Action to take if the condition is true.",
+      "description": "Defines error handling for a flow step.",
       "properties": {
-        "useTool": {
-          "$ref": "#/definitions/FlowType.If.Then.UseTool",
-          "description": "Use a specific tool."
+        "retry": {
+          "type": "integer",
+          "description": "Number of times to retry the step."
         },
-        "agent": {
+        "fallback": {
+          "$ref": "#/definitions/FlowType.Step",
+          "description": "Fallback step to execute on error."
+        },
+        "log": {
           "type": "string",
-          "description": "Text response to send to the user."
-        },
-        "flow": {
-          "$ref": "#/definitions/FlowType",
-          "description": "Execute another flow."
-        },
-        "communicate": {
-          "$ref": "#/definitions/FlowType.If.Then.Communicate",
-          "description": "Communicate with another agent."
-        }
-      },
-      "oneOf": [
-        {"required": ["useTool"]},
-        {"required": ["agent"]},
-        {"required": ["flow"]},
-        {"required": ["communicate"]}
-      ]
-    },
-    "FlowType.If": {
-      "type": "object",
-      "description": "Conditional branch in a flow.",
-      "required": ["condition", "then"],
-      "properties": {
-        "condition": {
-          "type": "string",
-          "description": "Condition to evaluate."
-        },
-        "then": {
-          "$ref": "#/definitions/FlowType.If.Then",
-          "description": "Action to take if condition is true."
+          "description": "Log message or action."
         }
       }
     },
@@ -294,16 +354,54 @@
           "type": "string",
           "description": "Description of the flow."
         },
-        "if": {
+        "steps": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/FlowType.If"
+            "$ref": "#/definitions/FlowType.Step"
           },
-          "description": "Conditional branches in the flow.",
+          "description": "Steps in the flow.",
           "minItems": 0
+        },
+        "context": {
+          "type": "object",
+          "description": "Initial context for the flow.",
+          "additionalProperties": true
         }
       },
-      "required": ["id"]
+      "required": ["id", "steps"]
+    },
+    "AgentResponse": {
+      "type": "object",
+      "description": "Rich response from the agent.",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "Textual response."
+        },
+        "format": {
+          "type": "string",
+          "enum": ["plain", "markdown", "html"],
+          "description": "Format of the text."
+        },
+        "attachments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["image", "audio", "file"]
+              },
+              "url": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          },
+          "description": "Attachments to the response."
+        }
+      },
+      "required": ["text"]
     },
     "ConversationType.Turn": {
       "type": "object",
@@ -315,16 +413,16 @@
           "description": "User’s input."
         },
         "agent": {
-          "type": "string",
+          "$ref": "#/definitions/AgentResponse",
           "description": "Agent’s response."
         },
         "useTool": {
-          "$ref": "#/definitions/FlowType.If.Then.UseTool",
+          "$ref": "#/definitions/FlowType.Action.UseTool",
           "description": "Tool used during this turn."
         },
         "communicated": {
-          "$ref": "#/definitions/FlowType.If.Then.Communicate",
-          "description": "Details of agent-to-agent communication during this turn."
+          "$ref": "#/definitions/FlowType.Action.Communicate",
+          "description": "Agent-to-agent communication during this turn."
         }
       }
     },
@@ -365,15 +463,15 @@
       "description": "Action to take when an event is received.",
       "properties": {
         "agent": {
-          "type": "string",
-          "description": "Text response to send."
+          "$ref": "#/definitions/AgentResponse",
+          "description": "Response to send."
         },
         "useTool": {
-          "$ref": "#/definitions/FlowType.If.Then.UseTool",
+          "$ref": "#/definitions/FlowType.Action.UseTool",
           "description": "Use a specific tool."
         },
         "communicate": {
-          "$ref": "#/definitions/FlowType.If.Then.Communicate",
+          "$ref": "#/definitions/FlowType.Action.Communicate",
           "description": "Communicate with another agent."
         }
       },
@@ -390,11 +488,16 @@
       "properties": {
         "type": {
           "type": "string",
-          "description": "Type of event (e.g., 'user.message', 'agent.message')."
+          "enum": ["user.message", "agent.message", "system.error", "custom"],
+          "description": "Type of event."
         },
         "source": {
           "type": "string",
-          "description": "Source of the event (e.g., 'user', 'agent')."
+          "description": "Source of the event."
+        },
+        "payloadSchema": {
+          "type": "object",
+          "description": "Schema for the event payload."
         },
         "then": {
           "$ref": "#/definitions/EventsType.OnReceive.Then",
