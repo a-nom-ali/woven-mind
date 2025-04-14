@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/mcml.schema.json",
   "title": "Model Context Markup Language (MCML)",
-  "description": "A schema for configuring AI agents, including tools, workflows, conversations, and events. Supports MCP, A2A, and advanced workflow features.",
+  "description": "A schema for configuring AI agents, including tools, workflows, conversations, and events. Supports MCP and A2A protocols.",
   "version": "1.2",
   "type": "object",
   "properties": {
@@ -29,7 +29,6 @@
   "definitions": {
     "Mcml": {
       "type": "object",
-      "description": "Root element for MCML documents.",
       "properties": {
         "head": {
           "$ref": "#/definitions/HeadType",
@@ -59,502 +58,269 @@
         "protocolVersions": {
           "type": "object",
           "properties": {
-            "MCP": {
-              "type": "string",
-              "description": "Version of MCP used."
-            },
-            "A2A": {
-              "type": "string",
-              "description": "Version of A2A used."
-            }
+            "MCP": { "type": "string" },
+            "A2A": { "type": "string" }
           },
           "description": "Versions of protocols used in this MCML document."
-        }
-      },
-      "required": ["head", "body", "version"]
-    },
-    "ImportType": {
-      "type": "object",
-      "description": "Imports an external MCML document.",
-      "required": ["file"],
-      "properties": {
-        "file": {
-          "type": "string",
-          "format": "uri",
-          "description": "URI of the MCML document to import."
-        }
-      }
-    },
-    "HeadType": {
-      "type": "object",
-      "description": "Metadata about the model, including capabilities, constraints, and tools.",
-      "properties": {
-        "identity": {
-          "type": "string",
-          "description": "Unique identifier for the model."
-        },
-        "capabilities": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "List of model capabilities (e.g., 'summarization', 'translation').",
-          "minItems": 0
-        },
-        "constraints": {
-          "type": "string",
-          "description": "Constraints on the model's behavior (e.g., 'no profanity')."
-        },
-        "style": {
-          "type": "string",
-          "description": "Desired style of the model's output (e.g., 'formal', 'informal')."
-        },
-        "memory": {
-          "type": "integer",
-          "description": "Size of the model's memory (in tokens).",
-          "minimum": 0
-        },
-        "goals": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Goals for the model to achieve.",
-          "minItems": 0
-        },
-        "tools": {
-          "$ref": "#/definitions/ToolsType",
-          "description": "Tools available to the model, including MCP-based tools."
         },
         "schemas": {
           "type": "object",
           "additionalProperties": {
             "type": "object"
           },
-          "description": "Named schema definitions for tool inputs/outputs (e.g., JSON Schema)."
-        },
-        "imports": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ImportType"
-          },
-          "description": "External MCML documents to import for the head section.",
-          "minItems": 0
+          "description": "Named schema definitions for tools and events."
         }
+      },
+      "required": ["head", "body", "version"]
+    },
+    "ImportType": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "format": "uri",
+          "description": "URI of the MCML document to import."
+        }
+      },
+      "required": ["file"]
+    },
+    "HeadType": {
+      "type": "object",
+      "properties": {
+        "identity": { "type": "string" },
+        "capabilities": { "type": "array", "items": { "type": "string" } },
+        "constraints": { "type": "string" },
+        "style": { "type": "string" },
+        "memory": { "type": "integer", "minimum": 0 },
+        "goals": { "type": "array", "items": { "type": "string" } },
+        "tools": { "$ref": "#/definitions/ToolsType" },
+        "imports": { "type": "array", "items": { "$ref": "#/definitions/ImportType" } }
       },
       "required": ["identity"]
     },
     "ToolsType": {
       "type": "object",
-      "description": "Defines the available tools that the model can use.",
       "properties": {
         "tool": {
           "type": "array",
-          "items": {
-            "$ref": "#/definitions/ToolsType.Tool"
-          },
-          "minItems": 0
+          "items": { "$ref": "#/definitions/ToolsType.Tool" }
         }
       }
     },
     "ToolsType.Tool": {
       "type": "object",
-      "description": "A tool the model can invoke, supporting various protocols like MCP.",
-      "required": ["name", "connection", "inputSchema", "outputSchema"],
       "properties": {
-        "name": {
-          "type": "string",
-          "description": "Unique name of the tool."
-        },
+        "name": { "type": "string" },
         "connection": {
           "type": "object",
-          "description": "How to connect to the tool.",
           "properties": {
-            "protocol": {
-              "type": "string",
-              "enum": ["MCP", "local", "API", "custom"],
-              "description": "Protocol for accessing the tool."
-            },
+            "protocol": { "type": "string", "enum": ["MCP", "local", "API", "custom"] },
             "details": {
               "type": "object",
-              "description": "Protocol-specific connection details.",
               "properties": {
-                "auth": {
-                  "type": "object",
-                  "description": "Authentication details.",
-                  "properties": {
-                    "type": {
-                      "type": "string",
-                      "enum": ["apiKey", "oauth", "none"],
-                      "description": "Type of authentication."
-                    },
-                    "credentials": {
-                      "type": "object",
-                      "description": "Authentication credentials.",
-                      "additionalProperties": true
-                    }
-                  }
-                }
+                "auth": { "$ref": "#/definitions/AuthType" }
               },
               "additionalProperties": true
             }
           },
           "required": ["protocol"]
         },
-        "inputSchema": {
-          "oneOf": [
-            {"type": "object"},
-            {"type": "string", "description": "Reference to a named schema in head.schemas"}
-          ],
-          "description": "Input parameters for the tool."
-        },
-        "outputSchema": {
-          "oneOf": [
-            {"type": "object"},
-            {"type": "string", "description": "Reference to a named schema in head.schemas"}
-          ],
-          "description": "Expected output format of the tool."
-        },
-        "requiresConsent": {
-          "type": "boolean",
-          "description": "Whether user consent is required to use this tool.",
-          "default": false
-        },
-        "description": {
-          "type": "string",
-          "description": "Human-readable description of the tool."
-        }
-      }
+        "inputSchema": { "$ref": "#/definitions/SchemaOrReference" },
+        "outputSchema": { "$ref": "#/definitions/SchemaOrReference" },
+        "requiresConsent": { "type": "boolean", "default": false },
+        "description": { "type": "string" }
+      },
+      "required": ["name", "connection", "inputSchema", "outputSchema"]
     },
-    "FlowType.Step": {
+    "SchemaOrReference": {
+      "oneOf": [
+        { "type": "object", "description": "Inline schema definition." },
+        { "type": "string", "pattern": "^\\$schemas\\.[a-zA-Z0-9_]+$", "description": "Reference to a schema in the schemas section." }
+      ]
+    },
+    "AuthType": {
       "type": "object",
-      "description": "A step in a flow, which can be a control structure or an action.",
       "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["if", "loop", "parallel", "sequence", "action"],
-          "description": "Type of the step."
-        },
-        "condition": {
-          "type": "string",
-          "description": "Condition for 'if' or 'loop' steps."
-        },
-        "steps": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/FlowType.Step"
-          },
-          "description": "Nested steps for 'sequence', 'parallel', or 'loop'."
-        },
-        "action": {
-          "$ref": "#/definitions/FlowType.Action",
-          "description": "Action to perform for 'action' steps."
-        },
-        "onError": {
-          "$ref": "#/definitions/FlowType.ErrorHandler",
-          "description": "Error handling for this step."
-        }
+        "type": { "type": "string", "enum": ["none", "apiKey", "oauth", "basic"], "default": "none" },
+        "credentials": { "type": "object", "additionalProperties": true }
       },
       "required": ["type"]
     },
-    "FlowType.Action": {
-      "type": "object",
-      "description": "An action within a flow step.",
-      "properties": {
-        "useTool": {
-          "$ref": "#/definitions/FlowType.Action.UseTool",
-          "description": "Use a specific tool."
-        },
-        "agent": {
-          "$ref": "#/definitions/AgentResponse",
-          "description": "Response to the user."
-        },
-        "communicate": {
-          "$ref": "#/definitions/FlowType.Action.Communicate",
-          "description": "Communicate with another agent."
-        }
-      },
-      "oneOf": [
-        {"required": ["useTool"]},
-        {"required": ["agent"]},
-        {"required": ["communicate"]}
-      ]
-    },
-    "FlowType.Action.UseTool": {
-      "type": "object",
-      "description": "Use a tool within a flow.",
-      "required": ["name", "parameters"],
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of the tool to use."
-        },
-        "parameters": {
-          "type": "object",
-          "description": "Input parameters for the tool, supporting dynamic expressions."
-        },
-        "resultVariable": {
-          "type": "string",
-          "description": "Variable to store the tool's result."
-        }
-      }
-    },
-    "FlowType.Action.Communicate": {
-      "type": "object",
-      "description": "Send a message to another agent.",
-      "properties": {
-        "protocol": {
-          "type": "string",
-          "default": "A2A",
-          "description": "Communication protocol."
-        },
-        "target": {
-          "type": "string",
-          "description": "Identifier of the target agent."
-        },
-        "message": {
-          "type": "object",
-          "description": "Message content.",
-          "additionalProperties": true
-        }
-      },
-      "required": ["target", "message"]
-    },
-    "FlowType.ErrorHandler": {
-      "type": "object",
-      "description": "Defines error handling for a flow step.",
-      "properties": {
-        "retry": {
-          "type": "integer",
-          "description": "Number of times to retry the step."
-        },
-        "fallback": {
-          "$ref": "#/definitions/FlowType.Step",
-          "description": "Fallback step to execute on error."
-        },
-        "log": {
-          "type": "string",
-          "description": "Log message or action."
-        }
-      }
-    },
     "FlowType": {
       "type": "object",
-      "description": "Defines a workflow or process.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the flow."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the flow."
-        },
-        "description": {
-          "type": "string",
-          "description": "Description of the flow."
-        },
-        "steps": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/FlowType.Step"
-          },
-          "description": "Steps in the flow.",
-          "minItems": 0
-        },
-        "context": {
-          "type": "object",
-          "description": "Initial context for the flow.",
-          "additionalProperties": true
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "context": { "type": "object", "additionalProperties": true },
+        "steps": { "type": "array", "items": { "$ref": "#/definitions/FlowStep" } }
       },
       "required": ["id", "steps"]
     },
+    "FlowStep": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["if", "loop", "parallel", "sequence", "action"] },
+        "onError": { "$ref": "#/definitions/OnError" }
+      },
+      "required": ["type"],
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "if" },
+            "condition": { "type": "string" },
+            "then": { "type": "array", "items": { "$ref": "#/definitions/FlowStep" } },
+            "else": { "type": "array", "items": { "$ref": "#/definitions/FlowStep" } }
+          },
+          "required": ["condition", "then"]
+        },
+        {
+          "properties": {
+            "type": { "const": "loop" },
+            "condition": { "type": "string" },
+            "maxIterations": { "type": "integer", "minimum": 1 },
+            "steps": { "type": "array", "items": { "$ref": "#/definitions/FlowStep" } }
+          },
+          "required": ["condition", "steps"]
+        },
+        {
+          "properties": {
+            "type": { "const": "parallel" },
+            "steps": { "type": "array", "items": { "$ref": "#/definitions/FlowStep" } },
+            "resultsVariable": { "type": "string" },
+            "onError": { "$ref": "#/definitions/OnError" }
+          },
+          "required": ["steps"]
+        },
+        {
+          "properties": {
+            "type": { "const": "sequence" },
+            "steps": { "type": "array", "items": { "$ref": "#/definitions/FlowStep" } }
+          },
+          "required": ["steps"]
+        },
+        {
+          "properties": {
+            "type": { "const": "action" },
+            "action": { "$ref": "#/definitions/ActionType" }
+          },
+          "required": ["action"]
+        }
+      ]
+    },
+    "ActionType": {
+      "type": "object",
+      "oneOf": [
+        {
+          "properties": {
+            "useTool": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "parameters": { "type": "object", "additionalProperties": true },
+                "resultVariable": { "type": "string" }
+              },
+              "required": ["name", "parameters"]
+            }
+          },
+          "required": ["useTool"]
+        },
+        {
+          "properties": {
+            "agent": { "$ref": "#/definitions/AgentResponse" }
+          },
+          "required": ["agent"]
+        },
+        {
+          "properties": {
+            "communicate": {
+              "type": "object",
+              "properties": {
+                "protocol": { "type": "string", "default": "A2A" },
+                "target": { "type": "string" },
+                "message": { "type": "object", "additionalProperties": true }
+              },
+              "required": ["target", "message"]
+            }
+          },
+          "required": ["communicate"]
+        }
+      ]
+    },
     "AgentResponse": {
       "type": "object",
-      "description": "Rich response from the agent.",
       "properties": {
-        "text": {
-          "type": "string",
-          "description": "Textual response."
-        },
-        "format": {
-          "type": "string",
-          "enum": ["plain", "markdown", "html"],
-          "description": "Format of the text."
-        },
+        "text": { "type": "string" },
+        "format": { "type": "string", "enum": ["plain", "markdown", "html"], "default": "plain" },
         "attachments": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
-              "type": {
-                "type": "string",
-                "enum": ["image", "audio", "file"]
-              },
-              "url": {
-                "type": "string",
-                "format": "uri"
-              }
-            }
-          },
-          "description": "Attachments to the response."
+              "type": { "type": "string", "enum": ["image", "file", "audio", "video"] },
+              "url": { "type": "string", "format": "uri" },
+              "description": { "type": "string" }
+            },
+            "required": ["type", "url"]
+          }
         }
       },
       "required": ["text"]
     },
-    "ConversationType.Turn": {
+    "OnError": {
       "type": "object",
-      "description": "A single turn in a conversation.",
-      "required": ["user", "agent"],
       "properties": {
-        "user": {
-          "type": "string",
-          "description": "User’s input."
-        },
-        "agent": {
-          "$ref": "#/definitions/AgentResponse",
-          "description": "Agent’s response."
-        },
-        "useTool": {
-          "$ref": "#/definitions/FlowType.Action.UseTool",
-          "description": "Tool used during this turn."
-        },
-        "communicated": {
-          "$ref": "#/definitions/FlowType.Action.Communicate",
-          "description": "Agent-to-agent communication during this turn."
-        }
-      }
+        "type": { "type": "string", "enum": ["retry", "fallback", "log", "ignore"] },
+        "maxAttempts": { "type": "integer", "minimum": 1 },
+        "delay": { "type": "integer", "minimum": 0 },
+        "action": { "$ref": "#/definitions/ActionType" },
+        "message": { "type": "string" }
+      },
+      "required": ["type"]
     },
     "ConversationType": {
       "type": "object",
-      "description": "Represents a multi-turn conversation.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the conversation."
-        },
-        "turn": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ConversationType.Turn"
-          },
-          "description": "List of turns in the conversation.",
-          "minItems": 0
-        },
-        "timestamp": {
-          "type": "string",
-          "format": "date-time",
-          "description": "Timestamp of the conversation's start."
-        },
-        "tags": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Tags associated with the conversation.",
-          "minItems": 0
-        }
+        "id": { "type": "string" },
+        "turn": { "type": "array", "items": { "$ref": "#/definitions/ConversationType.Turn" } },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "tags": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["id"]
     },
-    "EventsType.OnReceive.Then": {
+    "ConversationType.Turn": {
       "type": "object",
-      "description": "Action to take when an event is received.",
       "properties": {
-        "agent": {
-          "$ref": "#/definitions/AgentResponse",
-          "description": "Response to send."
-        },
-        "useTool": {
-          "$ref": "#/definitions/FlowType.Action.UseTool",
-          "description": "Use a specific tool."
-        },
-        "communicate": {
-          "$ref": "#/definitions/FlowType.Action.Communicate",
-          "description": "Communicate with another agent."
-        }
+        "user": { "type": "string" },
+        "agent": { "$ref": "#/definitions/AgentResponse" },
+        "actions": { "type": "array", "items": { "$ref": "#/definitions/ActionType" } }
       },
-      "oneOf": [
-        {"required": ["agent"]},
-        {"required": ["useTool"]},
-        {"required": ["communicate"]}
-      ]
-    },
-    "EventsType.OnReceive": {
-      "type": "object",
-      "description": "Defines an event to listen for.",
-      "required": ["type"],
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": ["user.message", "agent.message", "system.error", "custom"],
-          "description": "Type of event."
-        },
-        "source": {
-          "type": "string",
-          "description": "Source of the event."
-        },
-        "payloadSchema": {
-          "type": "object",
-          "description": "Schema for the event payload."
-        },
-        "then": {
-          "$ref": "#/definitions/EventsType.OnReceive.Then",
-          "description": "Action to take when the event is received."
-        }
-      }
+      "required": ["user", "agent"]
     },
     "EventsType": {
       "type": "object",
-      "description": "Defines a set of events to listen for.",
       "properties": {
-        "onReceive": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/EventsType.OnReceive"
-          },
-          "description": "List of events to listen for.",
-          "minItems": 0
-        }
+        "onReceive": { "type": "array", "items": { "$ref": "#/definitions/EventsType.OnReceive" } }
       }
+    },
+    "EventsType.OnReceive": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["user.message", "agent.message", "system.error", "custom"] },
+        "customType": { "type": "string" },
+        "source": { "type": "string" },
+        "payloadSchema": { "$ref": "#/definitions/SchemaOrReference" },
+        "then": { "$ref": "#/definitions/ActionType" }
+      },
+      "required": ["type", "then"]
     },
     "BodyType": {
       "type": "object",
-      "description": "Contains the main content of the MCML document.",
       "properties": {
-        "flows": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/FlowType"
-          },
-          "description": "List of workflows.",
-          "minItems": 0
-        },
-        "conversations": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ConversationType"
-          },
-          "description": "List of conversations.",
-          "minItems": 0
-        },
-        "events": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/EventsType"
-          },
-          "description": "List of events.",
-          "minItems": 0
-        },
-        "imports": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/ImportType"
-          },
-          "description": "External MCML documents to import for the body section.",
-          "minItems": 0
-        }
+        "flows": { "type": "array", "items": { "$ref": "#/definitions/FlowType" } },
+        "conversations": { "type": "array", "items": { "$ref": "#/definitions/ConversationType" } },
+        "events": { "type": "array", "items": { "$ref": "#/definitions/EventsType" } },
+        "imports": { "type": "array", "items": { "$ref": "#/definitions/ImportType" } }
       }
     }
   }
