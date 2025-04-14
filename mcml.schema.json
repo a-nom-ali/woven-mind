@@ -1,0 +1,458 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/mcml.schema.json",
+  "title": "Model Context Markup Language (MCML)",
+  "description": "A schema for configuring AI agents, including tools, workflows, conversations, and events. Supports MCP and A2A protocols.",
+  "version": "1.1",
+  "type": "object",
+  "properties": {
+    "mcml": {
+      "$ref": "#/definitions/Mcml",
+      "description": "Root element of the MCML document."
+    },
+    "text": {
+      "type": "string",
+      "description": "Input text for the model."
+    },
+    "image": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI to an image file or Base64 encoded image data."
+    },
+    "audio": {
+      "type": "string",
+      "format": "uri",
+      "description": "URI to an audio file or Base64 encoded audio data."
+    }
+  },
+  "required": ["mcml"],
+  "definitions": {
+    "Mcml": {
+      "type": "object",
+      "description": "Root element for MCML documents.",
+      "properties": {
+        "head": {
+          "$ref": "#/definitions/HeadType",
+          "description": "Metadata about the model, including capabilities, constraints, and tools."
+        },
+        "body": {
+          "$ref": "#/definitions/BodyType",
+          "description": "Main content, including flows, conversations, and events."
+        },
+        "imports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ImportType"
+          },
+          "description": "External MCML documents to import.",
+          "minItems": 0
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the MCML schema used.",
+          "pattern": "^\\d+\\.\\d+$"
+        },
+        "baseAgent": {
+          "type": "string",
+          "description": "Identifier for the base agent or model."
+        },
+        "protocolVersions": {
+          "type": "object",
+          "properties": {
+            "MCP": {
+              "type": "string",
+              "description": "Version of MCP used."
+            },
+            "A2A": {
+              "type": "string",
+              "description": "Version of A2A used."
+            }
+          },
+          "description": "Versions of protocols used in this MCML document."
+        }
+      },
+      "required": ["head", "body", "version"]
+    },
+    "ImportType": {
+      "type": "object",
+      "description": "Imports an external MCML document.",
+      "required": ["file"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "format": "uri",
+          "description": "URI of the MCML document to import."
+        }
+      }
+    },
+    "HeadType": {
+      "type": "object",
+      "description": "Metadata about the model, including capabilities, constraints, and tools.",
+      "properties": {
+        "identity": {
+          "type": "string",
+          "description": "Unique identifier for the model."
+        },
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of model capabilities (e.g., 'summarization', 'translation').",
+          "minItems": 0
+        },
+        "constraints": {
+          "type": "string",
+          "description": "Constraints on the model's behavior (e.g., 'no profanity')."
+        },
+        "style": {
+          "type": "string",
+          "description": "Desired style of the model's output (e.g., 'formal', 'informal')."
+        },
+        "memory": {
+          "type": "integer",
+          "description": "Size of the model's memory (in tokens).",
+          "minimum": 0
+        },
+        "goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Goals for the model to achieve.",
+          "minItems": 0
+        },
+        "tools": {
+          "$ref": "#/definitions/ToolsType",
+          "description": "Tools available to the model, including MCP-based tools."
+        },
+        "imports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ImportType"
+          },
+          "description": "External MCML documents to import for the head section.",
+          "minItems": 0
+        }
+      },
+      "required": ["identity"]
+    },
+    "ToolsType": {
+      "type": "object",
+      "description": "Defines the available tools that the model can use.",
+      "properties": {
+        "tool": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ToolsType.Tool"
+          },
+          "minItems": 0
+        }
+      }
+    },
+    "ToolsType.Tool": {
+      "type": "object",
+      "description": "A tool the model can invoke, supporting various protocols like MCP.",
+      "required": ["name", "connection", "inputSchema", "outputSchema"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique name of the tool."
+        },
+        "connection": {
+          "type": "object",
+          "description": "How to connect to the tool.",
+          "properties": {
+            "protocol": {
+              "type": "string",
+              "enum": ["MCP", "local", "API", "custom"],
+              "description": "Protocol for accessing the tool."
+            },
+            "details": {
+              "type": "object",
+              "description": "Protocol-specific connection details.",
+              "additionalProperties": true
+            }
+          },
+          "required": ["protocol"]
+        },
+        "inputSchema": {
+          "type": "object",
+          "description": "Input parameters for the tool."
+        },
+        "outputSchema": {
+          "type": "object",
+          "description": "Expected output format of the tool."
+        },
+        "requiresConsent": {
+          "type": "boolean",
+          "description": "Whether user consent is required to use this tool (common for MCP tools).",
+          "default": false
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the tool."
+        }
+      }
+    },
+    "FlowType.If.Then.UseTool": {
+      "type": "object",
+      "description": "Specifies the use of a tool within a flow.",
+      "required": ["name", "parameters"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the tool to use."
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Input parameters for the tool."
+        },
+        "resultVariable": {
+          "type": "string",
+          "description": "Variable to store the tool's result."
+        }
+      }
+    },
+    "FlowType.If.Then.Communicate": {
+      "type": "object",
+      "description": "Send a message to another agent via a communication protocol like A2A.",
+      "properties": {
+        "protocol": {
+          "type": "string",
+          "default": "A2A",
+          "description": "Communication protocol."
+        },
+        "target": {
+          "type": "string",
+          "description": "Identifier of the target agent."
+        },
+        "message": {
+          "type": "object",
+          "description": "Message content.",
+          "additionalProperties": true
+        }
+      },
+      "required": ["target", "message"]
+    },
+    "FlowType.If.Then": {
+      "type": "object",
+      "description": "Action to take if the condition is true.",
+      "properties": {
+        "useTool": {
+          "$ref": "#/definitions/FlowType.If.Then.UseTool",
+          "description": "Use a specific tool."
+        },
+        "agent": {
+          "type": "string",
+          "description": "Text response to send to the user."
+        },
+        "flow": {
+          "$ref": "#/definitions/FlowType",
+          "description": "Execute another flow."
+        },
+        "communicate": {
+          "$ref": "#/definitions/FlowType.If.Then.Communicate",
+          "description": "Communicate with another agent."
+        }
+      },
+      "oneOf": [
+        {"required": ["useTool"]},
+        {"required": ["agent"]},
+        {"required": ["flow"]},
+        {"required": ["communicate"]}
+      ]
+    },
+    "FlowType.If": {
+      "type": "object",
+      "description": "Conditional branch in a flow.",
+      "required": ["condition", "then"],
+      "properties": {
+        "condition": {
+          "type": "string",
+          "description": "Condition to evaluate."
+        },
+        "then": {
+          "$ref": "#/definitions/FlowType.If.Then",
+          "description": "Action to take if condition is true."
+        }
+      }
+    },
+    "FlowType": {
+      "type": "object",
+      "description": "Defines a workflow or process.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the flow."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the flow."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the flow."
+        },
+        "if": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FlowType.If"
+          },
+          "description": "Conditional branches in the flow.",
+          "minItems": 0
+        }
+      },
+      "required": ["id"]
+    },
+    "ConversationType.Turn": {
+      "type": "object",
+      "description": "A single turn in a conversation.",
+      "required": ["user", "agent"],
+      "properties": {
+        "user": {
+          "type": "string",
+          "description": "User’s input."
+        },
+        "agent": {
+          "type": "string",
+          "description": "Agent’s response."
+        },
+        "useTool": {
+          "$ref": "#/definitions/FlowType.If.Then.UseTool",
+          "description": "Tool used during this turn."
+        },
+        "communicated": {
+          "$ref": "#/definitions/FlowType.If.Then.Communicate",
+          "description": "Details of agent-to-agent communication during this turn."
+        }
+      }
+    },
+    "ConversationType": {
+      "type": "object",
+      "description": "Represents a multi-turn conversation.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the conversation."
+        },
+        "turn": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConversationType.Turn"
+          },
+          "description": "List of turns in the conversation.",
+          "minItems": 0
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the conversation's start."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Tags associated with the conversation.",
+          "minItems": 0
+        }
+      },
+      "required": ["id"]
+    },
+    "EventsType.OnReceive.Then": {
+      "type": "object",
+      "description": "Action to take when an event is received.",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Text response to send."
+        },
+        "useTool": {
+          "$ref": "#/definitions/FlowType.If.Then.UseTool",
+          "description": "Use a specific tool."
+        },
+        "communicate": {
+          "$ref": "#/definitions/FlowType.If.Then.Communicate",
+          "description": "Communicate with another agent."
+        }
+      },
+      "oneOf": [
+        {"required": ["agent"]},
+        {"required": ["useTool"]},
+        {"required": ["communicate"]}
+      ]
+    },
+    "EventsType.OnReceive": {
+      "type": "object",
+      "description": "Defines an event to listen for.",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Type of event (e.g., 'user.message', 'agent.message')."
+        },
+        "source": {
+          "type": "string",
+          "description": "Source of the event (e.g., 'user', 'agent')."
+        },
+        "then": {
+          "$ref": "#/definitions/EventsType.OnReceive.Then",
+          "description": "Action to take when the event is received."
+        }
+      }
+    },
+    "EventsType": {
+      "type": "object",
+      "description": "Defines a set of events to listen for.",
+      "properties": {
+        "onReceive": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EventsType.OnReceive"
+          },
+          "description": "List of events to listen for.",
+          "minItems": 0
+        }
+      }
+    },
+    "BodyType": {
+      "type": "object",
+      "description": "Contains the main content of the MCML document.",
+      "properties": {
+        "flows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FlowType"
+          },
+          "description": "List of workflows.",
+          "minItems": 0
+        },
+        "conversations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ConversationType"
+          },
+          "description": "List of conversations.",
+          "minItems": 0
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EventsType"
+          },
+          "description": "List of events.",
+          "minItems": 0
+        },
+        "imports": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ImportType"
+          },
+          "description": "External MCML documents to import for the body section.",
+          "minItems": 0
+        }
+      }
+    }
+  }
+}
